@@ -1,8 +1,14 @@
+#include <ms-data.h>
+
 #include <stdio.h>
 #include <assert.h>
 #include <libical/ical.h>
 #include <icaltimezones.h>
 #include <QCoreApplication>
+
+//#define LIST_BUILTIN_TIMEZONES
+#define CREATE_RU_TIMEZONE
+#define CREATE_BERN_TIMEZONE
 
 #if 0
 typedef struct _MSSystemTime {
@@ -34,8 +40,8 @@ static KCalCore::MSTimeZone TestTimezone1 = {
 };
 static KCalCore::MSTimeZone TestTimezone2 = {
     -180,
-    "Europe/Test2", { 0, 0, 0, 0, 0, 0, 0, 0, }, 0,
-    "Europe/Test2", { 0, 0, 0, 0, 0, 0, 0, 0, }, 0,
+    "Europe/Test2", { 1901, 1, 0, 1, 0, 0, 0, 0, }, 0,
+    "Europe/Test2", { 1901, 1, 0, 1, 0, 0, 0, 0, }, 0,
 };
 
 int main(int argc, char **argv)
@@ -52,11 +58,13 @@ int main(int argc, char **argv)
   memset(&msTimezone.DaylightDate, 0, sizeof (msTimezone.DaylightDate));
 
   KCalCore::ICalTimeZoneSource tzSource;
-  KCalCore::ICalTimeZone timezone = tzSource.parse(&TestTimezone1);
+  KCalCore::ICalTimeZone timezone = tzSource.parse(&TestTimezone2);
 
-  icaltimezone *const icaltz = timezone.icalTimezone();
+  icaltimezone *const icaltz = icaltimezone_get_utc_timezone();
+//timezone.icalTimezone();
   icalcomponent *const tzComponent = icaltimezone_get_component(icaltz);
 
+#if 0
   /* Update standard component */
   icalcomponent *standard = icalcomponent_get_first_component(tzComponent, ICAL_XSTANDARD_COMPONENT);
   assert(standard);
@@ -74,10 +82,148 @@ int main(int argc, char **argv)
       icalcomponent_remove_component(tzComponent, daylight1);
     }
   }
+#endif
 
   char *const result = icalcomponent_as_ical_string(tzComponent);
 
   printf("Hello there:\n[%s]\n", result);
   free(result);
+
+#ifdef LIST_BUILTIN_TIMEZONES
+  /* Built-in timezones */
+  icalarray *const timezones = icaltimezone_get_builtin_timezones();
+  for (unsigned int i = 0; i < timezones->num_elements; ++i) {
+    icaltimezone *const item = (icaltimezone *)icalarray_element_at(timezones, i);
+    icalcomponent *const comp = icaltimezone_get_component(item);
+    const char *const location = icaltimezone_get_location(item);
+    printf("Timezone (%d): \"%s\", name: \"%s\"\n", i, location,
+                                         icaltimezone_get_display_name(item));
+    if (comp && 2 <= argc && !strcmp(location, argv[1])) {
+      printf("Timezone(%d):[\n%s]\n", i, icalcomponent_as_ical_string(comp));
+    }
+  }
+#endif /* LIST_BUILTIN_TIMEZONES */
+
+
+#ifdef CREATE_RU_TIMEZONE
+/*
+Try to generate a timezone like this:
+*/
+static char TheExpectedRuTimezoneString[] =
+"BEGIN:VTIMEZONE\r\n"
+"TZID:(UTC+03:00) Moscow\\, St. Petersburg\\, Volgograd\r\n"
+"BEGIN:STANDARD\r\n"
+"DTSTART:16010101T000000\r\n"
+"TZOFFSETFROM:+0300\r\n"
+"TZOFFSETTO:+0300\r\n"
+"END:STANDARD\r\n"
+"BEGIN:DAYLIGHT\r\n"
+"DTSTART:16010101T000000\r\n"
+"TZOFFSETFROM:+0300\r\n"
+"TZOFFSETTO:+0300\r\n"
+"END:DAYLIGHT\r\n"
+"END:VTIMEZONE\r\n";
+
+  printf("Here is the generated timezone:\n");
+  icalcomponent *const timezoneComponentRu = icalcomponent_new(ICAL_VTIMEZONE_COMPONENT);
+  /* Add 'TZID' property */
+  icalcomponent_add_property(timezoneComponentRu, icalproperty_new_tzid("(UTC+03:00) Moscow, St. Petersburg, Volgograd"));
+
+  /* Add STANDARD component */
+  icaltimetype standardDatetimeRu = {
+    1601, 1, 1,
+    0, 0, 0,
+    0, 0, 0, NULL
+  };
+  icalcomponent *const standardComponentRu = icalcomponent_new(ICAL_XSTANDARD_COMPONENT);
+  icalcomponent_add_property(standardComponentRu, icalproperty_new_dtstart(standardDatetimeRu));
+  icalcomponent_add_property(standardComponentRu, icalproperty_new_tzoffsetfrom(180*60));
+  icalcomponent_add_property(standardComponentRu, icalproperty_new_tzoffsetto(180*60));
+  icalcomponent_add_component(timezoneComponentRu, standardComponentRu);
+
+  /* Add DAYLIGHT component */
+  icaltimetype daylightDatetimeRu = {
+    1601, 1, 1,
+    0, 0, 0,
+    0, 0, 0, NULL
+  };
+  icalcomponent *const daylightComponentRu = icalcomponent_new(ICAL_XDAYLIGHT_COMPONENT);
+  icalcomponent_add_property(daylightComponentRu, icalproperty_new_dtstart(daylightDatetimeRu));
+  icalcomponent_add_property(daylightComponentRu, icalproperty_new_tzoffsetfrom(180*60));
+  icalcomponent_add_property(daylightComponentRu, icalproperty_new_tzoffsetto(180*60));
+  icalcomponent_add_component(timezoneComponentRu, daylightComponentRu);
+
+  char *const timezoneStringRu = icalcomponent_as_ical_string(timezoneComponentRu);
+  printf("[\n%s]\n", timezoneStringRu);
+  printf("Expected:\n[\n%s]\n", TheExpectedRuTimezoneString);
+
+  assert(!strcmp(TheExpectedRuTimezoneString, timezoneStringRu));
+  free(timezoneStringRu);
+  printf("Timezones match!!!\n");
+#endif /* CREATE_RU_TIMEZONE */
+
+#ifdef CREATE_BERN_TIMEZONE
+static const char TheExpectedBernTimezoneString[] = "BEGIN:VTIMEZONE\r\n"
+"TZID:(UTC+01:00) Amsterdam\\, Berlin\\, Bern\\, Rome\\, Stockholm\\, Vienna\r\n"
+"BEGIN:STANDARD\r\n"
+"DTSTART:16010101T030000\r\n"
+"TZOFFSETFROM:+0200\r\n"
+"TZOFFSETTO:+0100\r\n"
+"RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10\r\n"
+"END:STANDARD\r\n"
+"BEGIN:DAYLIGHT\r\n"
+"DTSTART:16010101T020000\r\n"
+"TZOFFSETFROM:+0100\r\n"
+"TZOFFSETTO:+0200\r\n"
+"RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=3\r\n"
+"END:DAYLIGHT\r\n"
+"END:VTIMEZONE\r\n";
+// Interval is '1' on default, it does not appear in libical, comment it out for now
+//"RRULE:FREQ=YEARLY;INTERVAL=1;BYDAY=-1SU;BYMONTH=10\r\n"
+//"RRULE:FREQ=YEARLY;INTERVAL=1;BYDAY=-1SU;BYMONTH=3\r\n"
+
+  printf("Here is the generated timezone:\n");
+  icalcomponent *const timezoneComponentBern = icalcomponent_new(ICAL_VTIMEZONE_COMPONENT);
+  /* Add 'TZID' property */
+  icalcomponent_add_property(timezoneComponentBern, icalproperty_new_tzid("(UTC+01:00) Amsterdam, Berlin, Bern, Rome, Stockholm, Vienna"));
+
+  /* Add STANDARD component */
+  icaltimetype standardDatetimeBern = {
+    1601, 1, 1,
+    3, 0, 0,
+    0, 0, 0, NULL
+  };
+  const icalrecurrencetype stdBernRRule = icalrecurrencetype_from_string("FREQ=YEARLY;INTERVAL=1;BYDAY=-1SU;BYMONTH=10");
+  icalcomponent *const standardComponentBern = icalcomponent_new(ICAL_XSTANDARD_COMPONENT);
+  icalcomponent_add_property(standardComponentBern, icalproperty_new_dtstart(standardDatetimeBern));
+  icalcomponent_add_property(standardComponentBern, icalproperty_new_tzoffsetfrom(120*60));
+  icalcomponent_add_property(standardComponentBern, icalproperty_new_tzoffsetto(60*60));
+  icalcomponent_add_property(standardComponentBern, icalproperty_new_rrule(stdBernRRule));
+  icalcomponent_add_component(timezoneComponentBern, standardComponentBern);
+
+  /* Add DAYLIGHT component */
+  icaltimetype daylightDatetimeBern = {
+    1601, 1, 1,
+    2, 0, 0,
+    0, 0, 0, NULL
+  };
+  const icalrecurrencetype dlBernRRule = icalrecurrencetype_from_string("FREQ=YEARLY;INTERVAL=1;BYDAY=-1SU;BYMONTH=3");
+  icalcomponent *const daylightComponentBern = icalcomponent_new(ICAL_XDAYLIGHT_COMPONENT);
+  icalcomponent_add_property(daylightComponentBern, icalproperty_new_dtstart(daylightDatetimeBern));
+  icalcomponent_add_property(daylightComponentBern, icalproperty_new_tzoffsetfrom(60*60));
+  icalcomponent_add_property(daylightComponentBern, icalproperty_new_tzoffsetto(120*60));
+  icalcomponent_add_property(daylightComponentBern, icalproperty_new_rrule(dlBernRRule));
+  icalcomponent_add_component(timezoneComponentBern, daylightComponentBern);
+
+  char *const timezoneStringBern = icalcomponent_as_ical_string(timezoneComponentBern);
+  printf("[\n%s]\n", timezoneStringBern);
+  printf("Expected:\n[\n%s]\n", TheExpectedBernTimezoneString);
+
+  assert(!strcmp(TheExpectedBernTimezoneString, timezoneStringBern));
+  free(timezoneStringBern);
+  printf("Timezones match!!!\n");
+
+#endif /* CREATE_BERN_TIMEZONE */
+
   return 0;
 }
