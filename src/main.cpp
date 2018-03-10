@@ -9,6 +9,7 @@
 //#define LIST_BUILTIN_TIMEZONES
 #define CREATE_RU_TIMEZONE
 #define CREATE_BERN_TIMEZONE
+#define HANDLING_DATES_TIMES
 
 #if 0
 typedef struct _MSSystemTime {
@@ -48,6 +49,8 @@ int main(int argc, char **argv)
 {
   QCoreApplication app(argc, argv);
 
+  int result = 0;
+
   KCalCore::MSTimeZone msTimezone;
   msTimezone.Bias = 180;
   msTimezone.StandardBias = 0;
@@ -84,10 +87,10 @@ int main(int argc, char **argv)
   }
 #endif
 
-  char *const result = icalcomponent_as_ical_string(tzComponent);
+  char *const resultStr = icalcomponent_as_ical_string(tzComponent);
 
-  printf("Hello there:\n[%s]\n", result);
-  free(result);
+  printf("Hello there:\n[%s]\n", resultStr);
+  free(resultStr);
 
 #ifdef LIST_BUILTIN_TIMEZONES
   /* Built-in timezones */
@@ -224,6 +227,29 @@ static const char TheExpectedBernTimezoneString[] = "BEGIN:VTIMEZONE\r\n"
   printf("Timezones match!!!\n");
 
 #endif /* CREATE_BERN_TIMEZONE */
+
+#ifdef HANDLING_DATES_TIMES
+  icaltimezone *const timezoneForTime = icaltimezone_new();
+  result = icaltimezone_set_component(timezoneForTime, timezoneComponentRu);
+  assert(1 == result);
+  icaltimetype timeForTime = icaltime_from_string("20180308T123000"/*, timezoneForTime*/);
+  icaltimetype timeForTimeTz = icaltime_set_timezone(&timeForTime, timezoneForTime);
+  icalproperty *const dtStartProp = icalproperty_new_dtstart(timeForTimeTz);
+  const char *const timeStr = icalproperty_as_ical_string(dtStartProp);
+  printf("Here is the formatted string: [%s]\n", timeStr);
+  const char *const tzid = icaltimezone_get_tzid((icaltimezone *)icaltime_get_timezone(timeForTimeTz));
+  printf("TZID: [%s]\n", tzid);
+
+  /* Playing with properties/parameters */
+  icalproperty *const testProp = icalproperty_new(ICAL_DTSTART_PROPERTY);
+  icalproperty_set_value_from_string(testProp, "20180308T143000", icalvalue_kind_to_string(ICAL_DATETIME_VALUE));
+  icalproperty_set_parameter_from_string(testProp, "TZID", tzid);
+
+  const char *const testPropStr = icalproperty_as_ical_string(testProp);
+  printf("Here is a test property: [%s]\n", testPropStr);
+
+  icaltimezone_free(timezoneForTime, true);
+#endif /* HANDLING_DATES_TIMES */
 
   return 0;
 }
