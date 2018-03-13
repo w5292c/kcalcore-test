@@ -17,11 +17,11 @@ typedef struct {
 typedef struct {
   int32_t bias;
 
-  int16_t    standardName[32];
+  wchar_t    standardName[32];
   MsDateTime standardDate;
   int32_t    standardBias;
 
-  int16_t    daylightName[32];
+  wchar_t    daylightName[32];
   MsDateTime daylightDate;
   int32_t    daylightBias;
 

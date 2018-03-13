@@ -1,11 +1,15 @@
 TEMPLATE=app
 
 QT -= gui
+QT += core
 
 CONFIG += link_pkgconfig
 
 PKGCONFIG += libkcalcoren-qt5 libical
 
-HEADERS=
+HEADERS=\
+  timezone.h
 
-SOURCES=main.cpp
+SOURCES=\
+  main.cpp \
+  timezone.cpp
