@@ -103,9 +103,41 @@ void test_timezone()
     return;
   }
 
-  icalcomponent *const standardComponent = icalcomponent_new(ICAL_XSTANDARD_COMPONENT);
+  icaltimetype standardDtStart;
+  memset(&standardDtStart, 0, sizeof (standardDtStart));
+  standardDtStart.year = TheMskTimezoneInfo.standardDate.year;
+  standardDtStart.month = TheMskTimezoneInfo.standardDate.month;
+  standardDtStart.day = TheMskTimezoneInfo.standardDate.day;
+  standardDtStart.hour = TheMskTimezoneInfo.standardDate.hour;
+  standardDtStart.minute = TheMskTimezoneInfo.standardDate.minute;
+  standardDtStart.second = TheMskTimezoneInfo.standardDate.second;
 
-  icalcomponent *const daylightComponent = icalcomponent_new(ICAL_XSTANDARD_COMPONENT);
+  icaltimetype daylightDtStart;
+  memset(&daylightDtStart, 0, sizeof (daylightDtStart));
+  daylightDtStart.year = TheMskTimezoneInfo.daylightDate.year;
+  daylightDtStart.month = TheMskTimezoneInfo.daylightDate.month;
+  daylightDtStart.day = TheMskTimezoneInfo.daylightDate.day;
+  daylightDtStart.hour = TheMskTimezoneInfo.daylightDate.hour;
+  daylightDtStart.minute = TheMskTimezoneInfo.daylightDate.minute;
+  daylightDtStart.second = TheMskTimezoneInfo.daylightDate.second;
+
+  /* Create the 'STANDARD' component */
+  icalcomponent *const standardComponent = icalcomponent_new(ICAL_XSTANDARD_COMPONENT);
+  icalcomponent_add_property(standardComponent,
+                             icalproperty_new_dtstart(standardDtStart));
+  icalcomponent_add_property(standardComponent,
+                             icalproperty_new_tzoffsetfrom(-60*(TheMskTimezoneInfo.bias + TheMskTimezoneInfo.daylightBias)));
+  icalcomponent_add_property(standardComponent,
+                             icalproperty_new_tzoffsetto(-60*(TheMskTimezoneInfo.bias + TheMskTimezoneInfo.standardBias)));
+
+  /* Create the 'DAYLIGHT' component */
+  icalcomponent *const daylightComponent = icalcomponent_new(ICAL_XDAYLIGHT_COMPONENT);
+  icalcomponent_add_property(daylightComponent,
+                             icalproperty_new_dtstart(daylightDtStart));
+  icalcomponent_add_property(daylightComponent,
+                             icalproperty_new_tzoffsetfrom(-60*(TheMskTimezoneInfo.bias + TheMskTimezoneInfo.standardBias)));
+  icalcomponent_add_property(daylightComponent,
+                             icalproperty_new_tzoffsetto(-60*(TheMskTimezoneInfo.bias + TheMskTimezoneInfo.daylightBias)));
 
   icalcomponent *const timezoneComponent = icalcomponent_new(ICAL_VTIMEZONE_COMPONENT);
   icalcomponent_add_property(timezoneComponent, icalproperty_new_tzid(timezoneName.toUtf8()));
@@ -115,9 +147,9 @@ void test_timezone()
   char *const timezoneString = icalcomponent_as_ical_string_r(timezoneComponent);
 
   if (!strcmp(TheMskTimezoneString, timezoneString)) {
-    printf("Timezones match\n");
+    printf("\x1b[30;42mTimezones match:\x1b[0m\n[\n%s]\n", timezoneString);
   } else {
-    printf("Timezones do not match, expected:[\n%s]\nGenerated:[\n%s]\n",
+    printf("\x1b[37;41mTimezones do not match, expected:\x1b[0m\n[\n%s]\n\x1b[37;41mGenerated:\x1b[0m\n[\n%s]\n",
            TheMskTimezoneString, timezoneString);
   }
 
