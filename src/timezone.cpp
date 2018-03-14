@@ -85,6 +85,7 @@ const char TheMskTimezoneString[] =
 "END:DAYLIGHT\r\n"
 "END:VTIMEZONE\r\n";
 
+icalcomponent *parse_ms_timezone(const MsTimezoneInfo *timezoneInfo);
 } // namespace {
 
 void test_timezone()
@@ -93,14 +94,39 @@ void test_timezone()
   wcscpy(TheMskTimezoneInfo.standardName, TheTimezoneName);
   wcscpy(TheMskTimezoneInfo.daylightName, TheTimezoneName);
 
+  /* Test 'MSK' timezone */
+  icalcomponent *const timezoneComponent = parse_ms_timezone(&TheMskTimezoneInfo);
+  char *const timezoneString = icalcomponent_as_ical_string_r(timezoneComponent);
+
+  if (!strcmp(TheMskTimezoneString, timezoneString)) {
+    printf("\x1b[30;42mTimezones match:\x1b[0m\n[\n%s]\n", timezoneString);
+  } else {
+    printf("\x1b[37;41mTimezones do not match, expected:\x1b[0m\n[\n%s]\n\x1b[37;41mGenerated:\x1b[0m\n[\n%s]\n",
+           TheMskTimezoneString, timezoneString);
+  }
+  free(timezoneString);
+}
+
+namespace {
+
+icalcomponent *parse_ms_timezone(const MsTimezoneInfo *timezoneInfo)
+{
+  /* Check argument(s) */
+  if (!timezoneInfo) {
+    /* No required arguments */
+    fprintf(stderr, "Error: no timezone information\n");
+    return NULL;
+  }
+
   /* Start handling timezones */
-  QString timezoneName = QString::fromWCharArray(TheMskTimezoneInfo.standardName);
+  QString timezoneName = QString::fromWCharArray(timezoneInfo->standardName);
   if (timezoneName.isEmpty()) {
-    timezoneName = QString::fromWCharArray(TheMskTimezoneInfo.daylightName);
+    timezoneName = QString::fromWCharArray(timezoneInfo->daylightName);
   }
   if (timezoneName.isEmpty()) {
-    fprintf(stderr, "Fatal: no timezone name\n");
-    return;
+    /* Timezone name does not exist */
+    fprintf(stderr, "Error: no timezone name\n");
+    return NULL;
   }
 
   icaltimetype standardDtStart;
@@ -139,19 +165,13 @@ void test_timezone()
   icalcomponent_add_property(daylightComponent,
                              icalproperty_new_tzoffsetto(-60*(TheMskTimezoneInfo.bias + TheMskTimezoneInfo.daylightBias)));
 
+  /* Create the 'TIMEZONE' component */
   icalcomponent *const timezoneComponent = icalcomponent_new(ICAL_VTIMEZONE_COMPONENT);
   icalcomponent_add_property(timezoneComponent, icalproperty_new_tzid(timezoneName.toUtf8()));
   icalcomponent_add_component(timezoneComponent, standardComponent);
   icalcomponent_add_component(timezoneComponent, daylightComponent);
 
-  char *const timezoneString = icalcomponent_as_ical_string_r(timezoneComponent);
-
-  if (!strcmp(TheMskTimezoneString, timezoneString)) {
-    printf("\x1b[30;42mTimezones match:\x1b[0m\n[\n%s]\n", timezoneString);
-  } else {
-    printf("\x1b[37;41mTimezones do not match, expected:\x1b[0m\n[\n%s]\n\x1b[37;41mGenerated:\x1b[0m\n[\n%s]\n",
-           TheMskTimezoneString, timezoneString);
-  }
-
-  free(timezoneString);
+  return timezoneComponent;
 }
+
+} // namespace {
