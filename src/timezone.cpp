@@ -31,34 +31,11 @@
 #include <QString>
 #include <libical/ical.h>
 
-/*typedef struct {
-  int16_t year;
-  int16_t month;
-  int16_t dayOfWeek;
-  int16_t day;
-  int16_t hour;
-  int16_t minute;
-  int16_t second;
-  int16_t milliseconds;
-} MsDateTime;
-
-typedef struct {
-  int32_t bias;
-
-  int16_t    standardName[32];
-  MsDateTime standardDate;
-  int32_t    standardBias;
-
-  int16_t    daylightName[32];
-  MsDateTime daylightDate;
-  int32_t    daylightBias;
-
-} MsTimezoneInfo;*/
-
 QT_USE_NAMESPACE
 
 namespace {
-const wchar_t TheTimezoneName[] = L"Russian Standard Time";
+const wchar_t TheTimezone1Name[] = L"Russian Standard Time";
+const wchar_t TheTimezone2Name[] = L"Berlin Standard Time";
 
 MsTimezoneInfo TheMskTimezoneInfo = {
   .bias = -180,
@@ -67,6 +44,16 @@ MsTimezoneInfo TheMskTimezoneInfo = {
   .standardBias = 0,
   .daylightName = {0},
   .daylightDate = { 1601, 1, 0, 1, 0, 0, 0, 0, },
+  .daylightBias = 0,
+};
+
+MsTimezoneInfo TheBerlinTimezoneInfo = {
+  .bias = -60,
+  .standardName = {0},
+  .standardDate = { 1601, 1, 0, 1, 3, 0, 0, 0, },
+  .standardBias = -60,
+  .daylightName = {0},
+  .daylightDate = { 1601, 1, 0, 1, 2, 0, 0, 0, },
   .daylightBias = 0,
 };
 
@@ -85,26 +72,67 @@ const char TheMskTimezoneString[] =
 "END:DAYLIGHT\r\n"
 "END:VTIMEZONE\r\n";
 
+const char TheBerlinTimezoneString[] =
+"BEGIN:VTIMEZONE\r\n"
+"TZID:Berlin Standard Time\r\n"
+"BEGIN:STANDARD\r\n"
+"DTSTART:16010101T030000\r\n"
+"TZOFFSETFROM:+0200\r\n"
+"TZOFFSETTO:+0100\r\n"
+"RRULE:FREQ=YEARLY;INTERVAL=1;BYDAY=-1SU;BYMONTH=10\r\n"
+"END:STANDARD\r\n"
+"BEGIN:DAYLIGHT\r\n"
+"DTSTART:16010101T020000\r\n"
+"TZOFFSETFROM:+0100\r\n"
+"TZOFFSETTO:+0200\r\n"
+"RRULE:FREQ=YEARLY;INTERVAL=1;BYDAY=-1SU;BYMONTH=3\r\n"
+"END:DAYLIGHT\r\n"
+"END:VTIMEZONE\r\n";
+
+const char TheTestTime1Str[] = "20180118T101130Z";
+const char TheTestTime2Str[] = "20180718T101130Z";
+
 icalcomponent *parse_ms_timezone(const MsTimezoneInfo *timezoneInfo);
+void compare_timezones(const char *expectedValue, const char *value);
+void test_time_convertion(const char *timeString, icaltimezone *timezone);
 } // namespace {
 
 void test_timezone()
 {
+  fprintf(stdout, "*********************** Timezone: \"%S\" ***********************\n", TheTimezone1Name);
+
   /* Initialize the initial structures */
-  wcscpy(TheMskTimezoneInfo.standardName, TheTimezoneName);
-  wcscpy(TheMskTimezoneInfo.daylightName, TheTimezoneName);
+  wcscpy(TheMskTimezoneInfo.standardName, TheTimezone1Name);
+  wcscpy(TheMskTimezoneInfo.daylightName, TheTimezone1Name);
+  wcscpy(TheBerlinTimezoneInfo.standardName, TheTimezone2Name);
+  wcscpy(TheBerlinTimezoneInfo.daylightName, TheTimezone2Name);
 
   /* Test 'MSK' timezone */
-  icalcomponent *const timezoneComponent = parse_ms_timezone(&TheMskTimezoneInfo);
-  char *const timezoneString = icalcomponent_as_ical_string_r(timezoneComponent);
-
-  if (!strcmp(TheMskTimezoneString, timezoneString)) {
-    printf("\x1b[30;42mTimezones match:\x1b[0m\n[\n%s]\n", timezoneString);
-  } else {
-    printf("\x1b[37;41mTimezones do not match, expected:\x1b[0m\n[\n%s]\n\x1b[37;41mGenerated:\x1b[0m\n[\n%s]\n",
-           TheMskTimezoneString, timezoneString);
-  }
+  icalcomponent *timezoneComponent = parse_ms_timezone(&TheMskTimezoneInfo);
+  icaltimezone *timezone = icaltimezone_new();
+  icaltimezone_set_component(timezone, timezoneComponent);
+  /* Test time zonvertion */
+  test_time_convertion(TheTestTime1Str, timezone);
+  test_time_convertion(TheTestTime2Str, timezone);
+  /* Check the generated timezone string */
+  char *timezoneString = icalcomponent_as_ical_string_r(timezoneComponent);
+  compare_timezones(TheMskTimezoneString, timezoneString);
   free(timezoneString);
+  icaltimezone_free(timezone, 1);
+
+  fprintf(stdout, "*********************** Timezone: \"%S\" ***********************\n", TheTimezone2Name);
+  /* Test 'MSK' timezone */
+  timezoneComponent = parse_ms_timezone(&TheBerlinTimezoneInfo);
+  timezone = icaltimezone_new();
+  icaltimezone_set_component(timezone, timezoneComponent);
+  /* Test time zonvertion */
+  test_time_convertion(TheTestTime1Str, timezone);
+  test_time_convertion(TheTestTime2Str, timezone);
+  /* Check the generated timezone string */
+  timezoneString = icalcomponent_as_ical_string_r(timezoneComponent);
+  compare_timezones(TheBerlinTimezoneString, timezoneString);
+  free(timezoneString);
+  icaltimezone_free(timezone, 1);
 }
 
 namespace {
@@ -131,39 +159,39 @@ icalcomponent *parse_ms_timezone(const MsTimezoneInfo *timezoneInfo)
 
   icaltimetype standardDtStart;
   memset(&standardDtStart, 0, sizeof (standardDtStart));
-  standardDtStart.year = TheMskTimezoneInfo.standardDate.year;
-  standardDtStart.month = TheMskTimezoneInfo.standardDate.month;
-  standardDtStart.day = TheMskTimezoneInfo.standardDate.day;
-  standardDtStart.hour = TheMskTimezoneInfo.standardDate.hour;
-  standardDtStart.minute = TheMskTimezoneInfo.standardDate.minute;
-  standardDtStart.second = TheMskTimezoneInfo.standardDate.second;
+  standardDtStart.year = timezoneInfo->standardDate.year;
+  standardDtStart.month = timezoneInfo->standardDate.month;
+  standardDtStart.day = timezoneInfo->standardDate.day;
+  standardDtStart.hour = timezoneInfo->standardDate.hour;
+  standardDtStart.minute = timezoneInfo->standardDate.minute;
+  standardDtStart.second = timezoneInfo->standardDate.second;
 
   icaltimetype daylightDtStart;
   memset(&daylightDtStart, 0, sizeof (daylightDtStart));
-  daylightDtStart.year = TheMskTimezoneInfo.daylightDate.year;
-  daylightDtStart.month = TheMskTimezoneInfo.daylightDate.month;
-  daylightDtStart.day = TheMskTimezoneInfo.daylightDate.day;
-  daylightDtStart.hour = TheMskTimezoneInfo.daylightDate.hour;
-  daylightDtStart.minute = TheMskTimezoneInfo.daylightDate.minute;
-  daylightDtStart.second = TheMskTimezoneInfo.daylightDate.second;
+  daylightDtStart.year = timezoneInfo->daylightDate.year;
+  daylightDtStart.month = timezoneInfo->daylightDate.month;
+  daylightDtStart.day = timezoneInfo->daylightDate.day;
+  daylightDtStart.hour = timezoneInfo->daylightDate.hour;
+  daylightDtStart.minute = timezoneInfo->daylightDate.minute;
+  daylightDtStart.second = timezoneInfo->daylightDate.second;
 
   /* Create the 'STANDARD' component */
   icalcomponent *const standardComponent = icalcomponent_new(ICAL_XSTANDARD_COMPONENT);
   icalcomponent_add_property(standardComponent,
                              icalproperty_new_dtstart(standardDtStart));
   icalcomponent_add_property(standardComponent,
-                             icalproperty_new_tzoffsetfrom(-60*(TheMskTimezoneInfo.bias + TheMskTimezoneInfo.daylightBias)));
+                             icalproperty_new_tzoffsetfrom(-60*(timezoneInfo->bias + timezoneInfo->standardBias)));
   icalcomponent_add_property(standardComponent,
-                             icalproperty_new_tzoffsetto(-60*(TheMskTimezoneInfo.bias + TheMskTimezoneInfo.standardBias)));
+                             icalproperty_new_tzoffsetto(-60*(timezoneInfo->bias + timezoneInfo->daylightBias)));
 
   /* Create the 'DAYLIGHT' component */
   icalcomponent *const daylightComponent = icalcomponent_new(ICAL_XDAYLIGHT_COMPONENT);
   icalcomponent_add_property(daylightComponent,
                              icalproperty_new_dtstart(daylightDtStart));
   icalcomponent_add_property(daylightComponent,
-                             icalproperty_new_tzoffsetfrom(-60*(TheMskTimezoneInfo.bias + TheMskTimezoneInfo.standardBias)));
+                             icalproperty_new_tzoffsetfrom(-60*(timezoneInfo->bias + timezoneInfo->daylightBias)));
   icalcomponent_add_property(daylightComponent,
-                             icalproperty_new_tzoffsetto(-60*(TheMskTimezoneInfo.bias + TheMskTimezoneInfo.daylightBias)));
+                             icalproperty_new_tzoffsetto(-60*(timezoneInfo->bias + timezoneInfo->standardBias)));
 
   /* Create the 'TIMEZONE' component */
   icalcomponent *const timezoneComponent = icalcomponent_new(ICAL_VTIMEZONE_COMPONENT);
@@ -172,6 +200,27 @@ icalcomponent *parse_ms_timezone(const MsTimezoneInfo *timezoneInfo)
   icalcomponent_add_component(timezoneComponent, daylightComponent);
 
   return timezoneComponent;
+}
+
+void compare_timezones(const char *expectedValue, const char *value)
+{
+  if (!strcmp(expectedValue, value)) {
+    printf("\x1b[30;42mTimezones match:\x1b[0m\n[\n%s]\n", value);
+  } else {
+    printf("\x1b[37;41mTimezones do not match, expected:\x1b[0m\n[\n%s]\n\x1b[37;41mGenerated:\x1b[0m\n[\n%s]\n",
+           expectedValue, value);
+  }
+}
+
+void test_time_convertion(const char *timeString, icaltimezone *timezone)
+{
+  icaltimetype time1 = icaltime_from_string(timeString);
+  char *const time1Str = icaltime_as_ical_string_r(time1);
+  icaltimetype time2 = icaltime_convert_to_zone(time1, timezone);
+  char *const time2Str = icaltime_as_ical_string_r(time2);
+  fprintf(stdout, "Test time (UTC): [%s], converts to (%s): [%s]\n", time1Str, icaltimezone_get_tzid(timezone), time2Str);
+  free(time2Str);
+  free(time1Str);
 }
 
 } // namespace {
