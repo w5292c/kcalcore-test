@@ -50,10 +50,10 @@ MsTimezoneInfo TheMskTimezoneInfo = {
 MsTimezoneInfo TheBerlinTimezoneInfo = {
   .bias = -60,
   .standardName = {0},
-  .standardDate = { 1601, 1, 0, 1, 3, 0, 0, 0, },
+  .standardDate = { 1601, 10, 0, 1, 3, 0, 0, 0, },
   .standardBias = -60,
   .daylightName = {0},
-  .daylightDate = { 1601, 1, 0, 1, 2, 0, 0, 0, },
+  .daylightDate = { 1601, 3, 0, 1, 2, 0, 0, 0, },
   .daylightBias = 0,
 };
 
@@ -79,13 +79,13 @@ const char TheBerlinTimezoneString[] =
 "DTSTART:16010101T030000\r\n"
 "TZOFFSETFROM:+0200\r\n"
 "TZOFFSETTO:+0100\r\n"
-"RRULE:FREQ=YEARLY;INTERVAL=1;BYDAY=-1SU;BYMONTH=10\r\n"
+"RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10\r\n"
 "END:STANDARD\r\n"
 "BEGIN:DAYLIGHT\r\n"
 "DTSTART:16010101T020000\r\n"
 "TZOFFSETFROM:+0100\r\n"
 "TZOFFSETTO:+0200\r\n"
-"RRULE:FREQ=YEARLY;INTERVAL=1;BYDAY=-1SU;BYMONTH=3\r\n"
+"RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=3\r\n"
 "END:DAYLIGHT\r\n"
 "END:VTIMEZONE\r\n";
 
@@ -157,11 +157,33 @@ icalcomponent *parse_ms_timezone(const MsTimezoneInfo *timezoneInfo)
     return NULL;
   }
 
+  icalproperty *standardRRule = NULL;
+  icalproperty *daylightRRule = NULL;
+  if (timezoneInfo->standardBias != timezoneInfo->daylightBias) {
+    icalrecurrencetype rrule;
+
+    /* 'RRULE' for 'STANDARD' */
+    icalrecurrencetype_clear(&rrule);
+    rrule.freq = ICAL_YEARLY_RECURRENCE;
+    rrule.interval = 1;
+    *rrule.by_month = timezoneInfo->standardDate.month;
+    *rrule.by_day = -(timezoneInfo->standardDate.dayOfWeek % 7 + 1) - 8;
+    standardRRule = icalproperty_new_rrule(rrule);
+
+    /* 'RRULE' for 'DAYLIGHT' */
+    icalrecurrencetype_clear(&rrule);
+    rrule.freq = ICAL_YEARLY_RECURRENCE;
+    rrule.interval = 1;
+    *rrule.by_month = timezoneInfo->daylightDate.month;
+    *rrule.by_day = -(timezoneInfo->daylightDate.dayOfWeek % 7 + 1) - 8;
+    daylightRRule = icalproperty_new_rrule(rrule);
+  }
+
   icaltimetype standardDtStart;
   memset(&standardDtStart, 0, sizeof (standardDtStart));
   standardDtStart.year = timezoneInfo->standardDate.year;
-  standardDtStart.month = timezoneInfo->standardDate.month;
-  standardDtStart.day = timezoneInfo->standardDate.day;
+  standardDtStart.month = 1;
+  standardDtStart.day = 1;
   standardDtStart.hour = timezoneInfo->standardDate.hour;
   standardDtStart.minute = timezoneInfo->standardDate.minute;
   standardDtStart.second = timezoneInfo->standardDate.second;
@@ -169,8 +191,8 @@ icalcomponent *parse_ms_timezone(const MsTimezoneInfo *timezoneInfo)
   icaltimetype daylightDtStart;
   memset(&daylightDtStart, 0, sizeof (daylightDtStart));
   daylightDtStart.year = timezoneInfo->daylightDate.year;
-  daylightDtStart.month = timezoneInfo->daylightDate.month;
-  daylightDtStart.day = timezoneInfo->daylightDate.day;
+  daylightDtStart.month = 1;
+  daylightDtStart.day = 1;
   daylightDtStart.hour = timezoneInfo->daylightDate.hour;
   daylightDtStart.minute = timezoneInfo->daylightDate.minute;
   daylightDtStart.second = timezoneInfo->daylightDate.second;
@@ -183,6 +205,9 @@ icalcomponent *parse_ms_timezone(const MsTimezoneInfo *timezoneInfo)
                              icalproperty_new_tzoffsetfrom(-60*(timezoneInfo->bias + timezoneInfo->standardBias)));
   icalcomponent_add_property(standardComponent,
                              icalproperty_new_tzoffsetto(-60*(timezoneInfo->bias + timezoneInfo->daylightBias)));
+  if (standardRRule) {
+    icalcomponent_add_property(standardComponent, standardRRule);
+  }
 
   /* Create the 'DAYLIGHT' component */
   icalcomponent *const daylightComponent = icalcomponent_new(ICAL_XDAYLIGHT_COMPONENT);
@@ -192,6 +217,9 @@ icalcomponent *parse_ms_timezone(const MsTimezoneInfo *timezoneInfo)
                              icalproperty_new_tzoffsetfrom(-60*(timezoneInfo->bias + timezoneInfo->daylightBias)));
   icalcomponent_add_property(daylightComponent,
                              icalproperty_new_tzoffsetto(-60*(timezoneInfo->bias + timezoneInfo->standardBias)));
+  if (daylightRRule) {
+    icalcomponent_add_property(daylightComponent, daylightRRule);
+  }
 
   /* Create the 'TIMEZONE' component */
   icalcomponent *const timezoneComponent = icalcomponent_new(ICAL_VTIMEZONE_COMPONENT);
