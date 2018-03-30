@@ -25,15 +25,25 @@
 
 #include "ms-data.h"
 
+#include <QDebug>
 #include <wchar.h>
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <QString>
+#include <QByteArray>
 #include <libical/ical.h>
 
 QT_USE_NAMESPACE
 
 namespace {
+QDebug &operator<<(QDebug &stream, const MsDateTime &time);
+QDebug &operator<<(QDebug &stream, const MsTimezoneInfo &info);
+
+void readString(QDataStream &stream, int length, wchar_t *str);
+QDataStream &operator>>(QDataStream &stream, MsDateTime &time);
+QDataStream &operator>>(QDataStream &stream, MsTimezoneInfo &info);
+
 const wchar_t TheTimezone1Name[] = L"Russian Standard Time";
 const wchar_t TheTimezone2Name[] = L"Berlin Standard Time";
 
@@ -92,6 +102,37 @@ const char TheBerlinTimezoneString[] =
 const char TheTestTime1Str[] = "20180118T101130Z";
 const char TheTestTime2Str[] = "20180718T101130Z";
 
+const char TheGoogleBerlinTimezoneB64[] =
+"AAAAAEcAcgBlAGUAbgB3AGkAYwBoACAAUwB0AGEAbgBkAGEAcgBkACAAVABpAG0AZQAAAAAAAAAAAAAA"
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACgAVQBUAEMAKwAwADAAOgAwADAAKQAgAE0AbwBuAHIA"
+"bwB2AGkAYQAsACAAUgBlAHkAawBqAGEAdgBpAGsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
+
+const char TheGoogleMskTimezoneB64[] =
+"AAAAAEcAcgBlAGUAbgB3AGkAYwBoACAAUwB0AGEAbgBkAGEAcgBkACAAVABpAG0AZQAAAAAAAAAAAAAA"
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACgAVQBUAEMAKwAwADAAOgAwADAAKQAgAE0AbwBuAHIA"
+"bwB2AGkAYQAsACAAUgBlAHkAawBqAGEAdgBpAGsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
+
+const char TheOutlookBerlinTimezoneB64[] =
+"xP///ygAVQBUAEMAKwAwADEAOgAwADAAKQAgAEEAbQBzAHQAZQByAGQAYQBtACwAIABCAGUAcgBsAGkA"
+"bgAsACAAQgAAAAoAAAAFAAMAAAAAAAAAAAAAAEMAdQBzAHQAbwBtAGkAegBlAGQAIABUAGkAbQBlACAA"
+"WgBvAG4AZQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAAAAFAAIAAAAAAAAAxP///w==";
+
+const char TheOutlookMskTimezoneB64[] =
+"TP///ygAVQBUAEMAKwAwADMAOgAwADAAKQAgAE0AbwBzAGMAbwB3ACwAIABTAHQALgAgAFAAZQB0AGUA"
+"cgBzAGIAdQAAAAAAAAAAAAAAAAAAAAAAAAAAAEMAdQBzAHQAbwBtAGkAegBlAGQAIABUAGkAbQBlACAA"
+"WgBvAG4AZQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
+
+const char TheHarBerlinTimezoneB64[] =
+"xP///1cALgAgAEUAdQByAG8AcABlACAAUwB0AGEAbgBkAGEAcgBkACAAVABpAG0AZQAAAAAAAAAAAAAA"
+"AAAAAAAAAAAAAAoAAAAFAAMAAAAAAAAAAAAAACgAVQBUAEMAKwAwADEAOgAwADAAKQAgAEEAbQBzAHQA"
+"ZQByAGQAYQBtACwAIABCAGUAcgBsAGkAbgAsACAAQgAAAAMAAAAFAAIAAAAAAAAAxP///w==";
+
+const char TheHarMskTimezoneB64[] =
+"TP///1IAdQBzAHMAaQBhAG4AIABTAHQAYQBuAGQAYQByAGQAIABUAGkAbQBlAAAAAAAAAAAAAAAAAAAA"
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACgAVQBUAEMAKwAwADMAOgAwADAAKQAgAE0AbwBzAGMA"
+"bwB3ACwAIABTAHQALgAgAFAAZQB0AGUAcgBzAGIAdQAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
+
+void test_timezone_b64(const char *timezone);
 icalcomponent *parse_ms_timezone(const MsTimezoneInfo *timezoneInfo);
 void compare_timezones(const char *expectedValue, const char *value);
 void test_time_convertion(const char *timeString, icaltimezone *timezone);
@@ -133,6 +174,16 @@ void test_timezone()
   compare_timezones(TheBerlinTimezoneString, timezoneString);
   free(timezoneString);
   icaltimezone_free(timezone, 1);
+}
+
+void test_timezones_b64()
+{
+  test_timezone_b64(TheGoogleBerlinTimezoneB64);
+  test_timezone_b64(TheGoogleMskTimezoneB64);
+  test_timezone_b64(TheOutlookBerlinTimezoneB64);
+  test_timezone_b64(TheOutlookMskTimezoneB64);
+  test_timezone_b64(TheHarBerlinTimezoneB64);
+  test_timezone_b64(TheHarMskTimezoneB64);
 }
 
 namespace {
@@ -181,7 +232,7 @@ icalcomponent *parse_ms_timezone(const MsTimezoneInfo *timezoneInfo)
 
   icaltimetype standardDtStart;
   memset(&standardDtStart, 0, sizeof (standardDtStart));
-  standardDtStart.year = timezoneInfo->standardDate.year;
+  standardDtStart.year = timezoneInfo->standardDate.year ? timezoneInfo->standardDate.year : 1601;
   standardDtStart.month = 1;
   standardDtStart.day = 1;
   standardDtStart.hour = timezoneInfo->standardDate.hour;
@@ -190,7 +241,7 @@ icalcomponent *parse_ms_timezone(const MsTimezoneInfo *timezoneInfo)
 
   icaltimetype daylightDtStart;
   memset(&daylightDtStart, 0, sizeof (daylightDtStart));
-  daylightDtStart.year = timezoneInfo->daylightDate.year;
+  daylightDtStart.year = timezoneInfo->daylightDate.year ? timezoneInfo->daylightDate.year : 1601;
   daylightDtStart.month = 1;
   daylightDtStart.day = 1;
   daylightDtStart.hour = timezoneInfo->daylightDate.hour;
@@ -249,6 +300,92 @@ void test_time_convertion(const char *timeString, icaltimezone *timezone)
   fprintf(stdout, "Test time (UTC): [%s], converts to (%s): [%s]\n", time1Str, icaltimezone_get_tzid(timezone), time2Str);
   free(time2Str);
   free(time1Str);
+}
+
+QDataStream &operator>>(QDataStream &stream, MsDateTime &time)
+{
+  stream >> time.year;
+  stream >> time.month;
+  stream >> time.dayOfWeek;
+  stream >> time.day;
+  stream >> time.hour;
+  stream >> time.minute;
+  stream >> time.second;
+  stream >> time.milliseconds;
+
+  return stream;
+}
+
+QDebug &operator<<(QDebug &stream, const MsDateTime &time)
+{
+  stream << "year:" << time.year;
+  stream << "month:" << time.month;
+  stream << "dow:" << time.dayOfWeek;
+  stream << "day:" << time.day;
+  stream << "hour:" << time.hour;
+  stream << "min:" << time.minute;
+  stream << "sec:" << time.second;
+  stream << "msec:" << time.milliseconds;
+
+  return stream;
+}
+
+QDebug &operator<<(QDebug &stream, const MsTimezoneInfo &info)
+{
+  stream << "bias:" << info.bias;
+
+  stream << "st-name:" << QString::fromWCharArray(info.standardName);
+  stream << "st-date:" << info.standardDate;
+  stream << "st-bias:" << info.standardBias;
+
+  stream << "dl-name:" << QString::fromWCharArray(info.daylightName);
+  stream << "dl-date:" << info.daylightDate;
+  stream << "dl-bias:" << info.daylightBias;
+
+  return stream;
+}
+
+QDataStream& operator>>(QDataStream &stream, MsTimezoneInfo &info)
+{
+  stream >> info.bias;
+
+  readString(stream, 32, info.standardName);
+  stream >> info.standardDate;
+  stream >> info.standardBias;
+
+  readString(stream, 32, info.daylightName);
+  stream >> info.daylightDate;
+  stream >> info.daylightBias;
+
+  return stream;
+}
+
+void readString(QDataStream &stream, int length, wchar_t *str)
+{
+  short character;
+  for (int i = 0; i < length; ++i) {
+    stream >> character;
+    assert(QDataStream::Ok == stream.status());
+    *str++ = character;
+  }
+}
+
+void test_timezone_b64(const char *timezone)
+{
+  MsTimezoneInfo msTimezoneInfo;
+  memset(&msTimezoneInfo, 0, sizeof (msTimezoneInfo));
+
+  QByteArray timezoneInfo = QByteArray::fromBase64(timezone);
+  QDataStream stream(timezoneInfo);
+  stream.setByteOrder(QDataStream::LittleEndian);
+
+  stream >> msTimezoneInfo;
+  qDebug() << "Info:" << msTimezoneInfo;
+
+  icalcomponent *const timezoneComponent = parse_ms_timezone(&msTimezoneInfo);
+  char *const timezoneString = icalcomponent_as_ical_string_r(timezoneComponent);
+  qDebug().nospace() << "Timezone component:\n" << timezoneString;
+  free(timezoneString);
 }
 
 } // namespace {

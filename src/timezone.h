@@ -26,5 +26,6 @@
 #define TIMEZONE_H
 
 void test_timezone();
+void test_timezones_b64();
 
 #endif /* TIMEZONE_H */

@@ -35,7 +35,8 @@
 //#define CREATE_RU_TIMEZONE
 //#define CREATE_BERN_TIMEZONE
 //#define HANDLING_DATES_TIMES
-#define TIMEZONE_TEST
+//#define TIMEZONE_TEST
+#define TIMEZONE_B64_TEST
 
 #if 0
 typedef struct _MSSystemTime {
@@ -539,6 +540,10 @@ cleanup:
   /* Timezone test */
   test_timezone();
 #endif /* TIMEZONE_TEST */
+
+#ifdef TIMEZONE_B64_TEST
+  test_timezones_b64();
+#endif /* TIMEZONE_B64_TEST */
 
   return result;
 }
