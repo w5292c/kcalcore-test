@@ -334,11 +334,15 @@ QDebug &operator<<(QDebug &stream, const MsTimezoneInfo &info)
 {
   stream << "bias:" << info.bias;
 
-  stream << "st-name:" << QString::fromWCharArray(info.standardName);
+  QString stdName = QString::fromWCharArray(info.standardName);
+  stdName = stdName.mid(0, 32);
+  stream << "st-name:" << stdName;
   stream << "st-date:" << info.standardDate;
   stream << "st-bias:" << info.standardBias;
 
-  stream << "dl-name:" << QString::fromWCharArray(info.daylightName);
+  QString dlName = QString::fromWCharArray(info.daylightName);
+  dlName = dlName.mid(0, 32);
+  stream << "dl-name:" << dlName;
   stream << "dl-date:" << info.daylightDate;
   stream << "dl-bias:" << info.daylightBias;
 
@@ -374,6 +378,7 @@ void test_timezone_b64(const char *timezone)
 {
   MsTimezoneInfo msTimezoneInfo;
   memset(&msTimezoneInfo, 0, sizeof (msTimezoneInfo));
+  qDebug().nospace() << "Original timezone info: \"" << timezone << "\"";
 
   QByteArray timezoneInfo = QByteArray::fromBase64(timezone);
   QDataStream stream(timezoneInfo);
