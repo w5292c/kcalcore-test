@@ -132,6 +132,33 @@ const char TheHarMskTimezoneB64[] =
 "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACgAVQBUAEMAKwAwADMAOgAwADAAKQAgAE0AbwBzAGMA"
 "bwB3ACwAIABTAHQALgAgAFAAZQB0AGUAcgBzAGIAdQAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
 
+/*
+Example times coming from ActiveSync servers:
+<StartTime>2018-03-31T03:00:00.000Z</StartTime>
+<DtStamp>2018-03-30T10:05:44.000Z</DtStamp>
+<EndTime>2018-03-31T04:00:00.000Z</EndTime>
+
+<StartTime>2018-04-01T07:00:00.000Z</StartTime>
+<DtStamp>2018-03-30T09:32:11.000Z</DtStamp>
+<EndTime>2018-04-01T07:30:00.000Z</EndTime>
+
+<StartTime>2018-04-01T09:00:00.000Z</StartTime>
+<DtStamp>2018-03-30T09:33:20.000Z</DtStamp>
+<EndTime>2018-04-01T09:30:00.000Z</EndTime>
+
+<StartTime>2018-03-30T10:00:00.000Z</StartTime>
+<DtStamp>2018-03-30T09:45:31.000Z</DtStamp>
+<EndTime>2018-03-30T10:30:00.000Z</EndTime>
+
+<StartTime>2018-03-30T10:00:00.000Z</StartTime>
+<DtStamp>2018-03-30T09:46:33.000Z</DtStamp>
+<EndTime>2018-03-30T10:30:00.000Z</EndTime>
+
+<StartTime>2018-03-31T05:00:00.000Z</StartTime>
+<DtStamp>2018-03-30T09:52:04.000Z</DtStamp>
+<EndTime>2018-03-31T06:00:00.000Z</EndTime>
+*/
+
 void test_timezone_b64(const char *timezone);
 icalcomponent *parse_ms_timezone(const MsTimezoneInfo *timezoneInfo);
 void compare_timezones(const char *expectedValue, const char *value);
