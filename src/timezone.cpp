@@ -31,7 +31,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <QString>
+#include <QDataStream>
 #include <QByteArray>
+#include <kdatetime.h>
 #include <libical/ical.h>
 
 QT_USE_NAMESPACE
@@ -158,6 +160,7 @@ Example times coming from ActiveSync servers:
 <DtStamp>2018-03-30T09:52:04.000Z</DtStamp>
 <EndTime>2018-03-31T06:00:00.000Z</EndTime>
 */
+const char TheTestTime1[] = "2018-12-31T03:00:00.000Z";
 
 void test_timezone_b64(const char *timezone);
 icalcomponent *parse_ms_timezone(const MsTimezoneInfo *timezoneInfo);
@@ -418,6 +421,30 @@ void test_timezone_b64(const char *timezone)
   char *const timezoneString = icalcomponent_as_ical_string_r(timezoneComponent);
   qDebug().nospace() << "Timezone component:\n" << timezoneString;
   free(timezoneString);
+
+  QString timeString = QString::fromLatin1(TheTestTime1);
+  if (timeString.endsWith(".000Z")) {
+    timeString.replace(".000Z", "Z");
+  }
+  icaltimetype time1 = icaltime_from_string(timeString.toUtf8());
+  char *time1Str = icaltime_as_ical_string_r(time1);
+  qDebug() << "Converted back, UTC:" << time1.is_utc << ", dl:" << time1.is_daylight << ", value:" << time1Str;
+  free(time1Str);
+
+  icaltimezone *timezoneObject = icaltimezone_new();
+  icaltimezone_set_component(timezoneObject, timezoneComponent);
+  icaltimetype time2 = icaltime_convert_to_zone(time1, timezoneObject);
+  char *time2Str = icaltime_as_ical_string_r(time2);
+  qDebug() << "Converted to timezone, UTC:" << time2.is_utc << ", dl:" << time2.is_daylight << ", value:" << time2Str;
+  free(time2Str);
+
+  QString org = QString::fromLatin1(TheTestTime1);
+  qDebug() << "Org:" << org;
+  // 2018-12-31T03:00:00.000Z
+  org.replace(QRegExp("([0-9]{4}\\-[0-9]{2}\\-[0-9]{2})T([0-9:]{8})\\.000Z"), "\\1T\\2Z");
+  qDebug() << "Now:" << org;
+  org.replace(QRegExp("([0-9-]{10})T([0-9:]{8})Z"), "\\1T\\2.000Z");
+  qDebug() << "Rst:" << org;
 }
 
 } // namespace {
