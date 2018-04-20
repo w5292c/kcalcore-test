@@ -160,7 +160,7 @@ Example times coming from ActiveSync servers:
 <DtStamp>2018-03-30T09:52:04.000Z</DtStamp>
 <EndTime>2018-03-31T06:00:00.000Z</EndTime>
 */
-const char TheTestTime1[] = "2018-12-31T03:00:00.000Z";
+const char TheTestTime1[] = "2018-12-31T03:00:00Z";
 
 void test_timezone_b64(const char *timezone);
 icalcomponent *parse_ms_timezone(const MsTimezoneInfo *timezoneInfo);
