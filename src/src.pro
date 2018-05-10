@@ -5,7 +5,8 @@ QT += core
 
 CONFIG += link_pkgconfig
 
-PKGCONFIG += libkcalcoren-qt5 libical
+PKGCONFIG += libical
+# libkcalcoren-qt5 libical
 
 HEADERS=\
   timezone.h

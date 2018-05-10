@@ -27,7 +27,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <libical/ical.h>
-#include <icaltimezones.h>
+//#include <icaltimezones.h>
 #include <QCoreApplication>
 
 //#define LIST_BUILTIN_TIMEZONES
@@ -59,7 +59,6 @@ typedef struct _MSTimeZone {
   MSSystemTime DaylightDate;
   long         DaylightBias;
 } MSTimeZone;
-#endif /* 0 */
 
 static KCalCore::MSTimeZone TestTimezone1 = {
     -60,
@@ -71,6 +70,7 @@ static KCalCore::MSTimeZone TestTimezone2 = {
     "Europe/Test2", { 1901, 1, 0, 1, 0, 0, 0, 0, }, 0,
     "Europe/Test2", { 1901, 1, 0, 1, 0, 0, 0, 0, }, 0,
 };
+#endif /* 0 */
 
 int main(int argc, char **argv)
 {
