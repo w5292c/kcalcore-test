@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <QString>
+#include <QRegExp>
 #include <QDataStream>
 #include <QByteArray>
 #include <kdatetime.h>
