@@ -27,7 +27,6 @@
 #include <stdio.h>
 #include <assert.h>
 #include <libical/ical.h>
-//#include <icaltimezones.h>
 #include <QCoreApplication>
 
 //#define LIST_BUILTIN_TIMEZONES
@@ -36,7 +35,8 @@
 //#define CREATE_BERN_TIMEZONE
 //#define HANDLING_DATES_TIMES
 //#define TIMEZONE_TEST
-#define TIMEZONE_B64_TEST
+//#define TIMEZONE_B64_TEST
+#define RRULE_TEST
 
 #if 0
 typedef struct _MSSystemTime {
@@ -544,6 +544,23 @@ cleanup:
 #ifdef TIMEZONE_B64_TEST
   test_timezones_b64();
 #endif /* TIMEZONE_B64_TEST */
+
+#ifdef RRULE_TEST
+  /* Init our test rrule */
+  icalrecurrencetype rrule;
+  icalrecurrencetype_clear(&rrule);
+  rrule.freq = ICAL_YEARLY_RECURRENCE;
+  rrule.interval = 1;
+  *rrule.by_month = 2; /* Month */
+  *rrule.by_day = 2; /* Weekday */
+  rrule.by_day[1] = 3; /* Another weekday */
+
+  icalproperty *const testRRuleProperty = icalproperty_new_rrule(rrule);
+  char *const testRRuleString = icalproperty_as_ical_string_r(testRRuleProperty);
+  fprintf(stdout, "Here is our RRULE string:\n\"%s\"\n", testRRuleString);
+  free(testRRuleString);
+  icalproperty_free(testRRuleProperty);
+#endif /* RRULE_TEST*/
 
   return result;
 }
